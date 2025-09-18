@@ -3,14 +3,651 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Página Sencilla</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Gestión de Choferes</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        .selection-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .selection-btn.selected {
+            background-color: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+        .selection-btn.rejected {
+            background-color: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+        .service-row {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .chofer-card {
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .sticky-top-custom {
+            position: sticky;
+            top: 10px;
+            z-index: 1020;
+        }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <h1>Bienvenido a mi página sencilla</h1>
-        <button id="colorButton">Cambiar Color de Fondo</button>
+<body class="bg-light">
+    <div class="container-fluid py-3">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="text-center mb-4 text-primary">
+                    <i class="fas fa-truck me-2"></i>
+                    Gestión de Choferes
+                </h1>
+            </div>
+        </div>
+
+        <!-- Panel de Tarifas -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-dollar-sign me-2"></i>
+                            Configuración de Tarifas
+                        </h5>
+                        <button id="editTarifasBtn" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-edit me-1"></i>
+                            Editar
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 col-sm-12 mb-2">
+                                <label class="form-label">Distribución</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" id="tarifaDistribucion" class="form-control" value="26" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-sm-12 mb-2">
+                                <label class="form-label">Recolección</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" id="tarifaRecoleccion" class="form-control" value="26" readonly>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-sm-12 mb-2">
+                                <label class="form-label">Extras</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" id="tarifaExtras" class="form-control" value="4" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <button id="verResumenBtn" class="btn btn-success">
+                        <i class="fas fa-eye me-1"></i>
+                        Ver Resumen
+                    </button>
+                    <button id="descargarPDFBtn" class="btn btn-danger">
+                        <i class="fas fa-file-pdf me-1"></i>
+                        Descargar PDF
+                    </button>
+                    <button id="limpiarBtn" class="btn btn-warning">
+                        <i class="fas fa-eraser me-1"></i>
+                        Limpiar Todo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de Choferes -->
+        <div class="row">
+            <div class="col-12">
+                <div id="choferesList"></div>
+            </div>
+        </div>
+
+        <!-- Modal para Detalles de Extras -->
+        <div class="modal fade" id="extrasModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Especificar Extras</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="currentChoferId">
+                        <div class="mb-3">
+                            <label for="extrasDetail" class="form-label">Detalles del trabajo extra:</label>
+                            <textarea class="form-control" id="extrasDetail" rows="3" placeholder="Especifique qué extras realizó..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" id="saveExtrasBtn">Guardar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Resumen -->
+        <div class="modal fade" id="resumenModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Resumen de Choferes Seleccionados</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="resumenContent"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        <button type="button" class="btn btn-danger" id="descargarPDFModal">
+                            <i class="fas fa-file-pdf me-1"></i>
+                            Descargar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <script src="script.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        class ChoferManager {
+            constructor() {
+               this.choferes = [
+                    { id: 1, nombre: 'Klever JBE' },
+                    { id: 2, nombre: 'Oscar GSK' },
+                    { id: 3, nombre: 'Solano PAE' },
+                    { id: 4, nombre: 'Solano 1733' },
+                    { id: 5, nombre: 'Iza IBC' },
+                    { id: 6, nombre: 'Sabando PAE' },
+                    { id: 7, nombre: 'Cacho Tapia JBA' },
+                    { id: 8, nombre: 'Tetano PBQ' },
+                    { id: 9, nombre: 'Alex 1424' },
+                    { id: 10, nombre: 'Garcia 2988' },
+                    { id: 11, nombre: 'Dionicio PAD' },
+                    { id: 12, nombre: 'Velecela PAB' },
+                    { id: 13, nombre: 'Mendez 8606a' },
+                    { id: 14, nombre: 'QUITO' },
+                    { id: 15, nombre: 'AMBATO' },
+                    { id: 16, nombre: 'GUAYAQUIL' }
+                ];
+                
+                this.selecciones = {};
+                this.detallesExtras = {};
+                this.tarifasExtrasPersonalizadas = {}; // Para tarifas de extras personalizadas
+                this.editandoTarifas = false;
+                
+                this.init();
+            }
+
+            init() {
+                this.renderChoferes();
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                // Editar tarifas
+                document.getElementById('editTarifasBtn').addEventListener('click', () => {
+                    this.toggleEditTarifas();
+                });
+
+                // Ver resumen
+                document.getElementById('verResumenBtn').addEventListener('click', () => {
+                    this.mostrarResumen();
+                });
+
+                // Descargar PDF
+                document.getElementById('descargarPDFBtn').addEventListener('click', () => {
+                    this.descargarPDF();
+                });
+
+                document.getElementById('descargarPDFModal').addEventListener('click', () => {
+                    this.descargarPDF();
+                });
+
+                // Limpiar todo
+                document.getElementById('limpiarBtn').addEventListener('click', () => {
+                    this.limpiarSelecciones();
+                });
+
+                // Guardar extras
+                document.getElementById('saveExtrasBtn').addEventListener('click', () => {
+                    this.guardarExtras();
+                });
+            }
+
+            renderChoferes() {
+                const container = document.getElementById('choferesList');
+                container.innerHTML = '';
+
+                this.choferes.forEach(chofer => {
+                    const card = this.createChoferCard(chofer);
+                    container.appendChild(card);
+                });
+            }
+
+            createChoferCard(chofer) {
+                const div = document.createElement('div');
+                div.className = 'chofer-card';
+                div.innerHTML = `
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-user me-2"></i>
+                                ${chofer.nombre}
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            ${this.createServiceRow(chofer.id, 'distribucion', 'Distribución', 'fas fa-shipping-fast')}
+                            ${this.createServiceRow(chofer.id, 'recoleccion', 'Recolección', 'fas fa-undo')}
+                            ${this.createServiceRow(chofer.id, 'extras', 'Extras', 'fas fa-plus-circle')}
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="bg-light p-2 rounded text-center">
+                                        <strong>Total: $<span id="total-${chofer.id}">0</span></strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return div;
+            }
+
+            createServiceRow(choferId, servicio, nombre, icono) {
+                return `
+                    <div class="service-row">
+                        <div class="row align-items-center">
+                            <div class="col-6 col-md-4">
+                                <i class="${icono} me-2 text-primary"></i>
+                                <span class="fw-semibold">${nombre}</span>
+                                <div class="small text-muted">$<span class="tarifa-${servicio}"></span></div>
+                            </div>
+                            <div class="col-6 col-md-4 text-end">
+                                <div class="d-flex justify-content-end gap-2">
+                                    <div class="selection-btn" onclick="choferManager.seleccionar(${choferId}, '${servicio}', true)">
+                                        <i class="fas fa-check"></i>
+                                    </div>
+                                    <div class="selection-btn" onclick="choferManager.seleccionar(${choferId}, '${servicio}', false)">
+                                        <i class="fas fa-times"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            ${servicio === 'extras' ? `
+                            <div class="col-12 col-md-4 mt-2 mt-md-0">
+                                <div id="extras-detail-${choferId}" class="small text-info" style="display:none;">
+                                    <div class="mb-2">
+                                        <label class="form-label small">Precio Extra:</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">$</span>
+                                            <input type="number" id="tarifa-extra-${choferId}" class="form-control" value="4" min="0" step="0.01" onchange="choferManager.cambiarTarifaExtra(${choferId})">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        <span class="extras-text">Sin especificar</span>
+                                        <button class="btn btn-sm btn-outline-info ms-2" onclick="choferManager.editarExtras(${choferId})">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            seleccionar(choferId, servicio, seleccionado) {
+                if (!this.selecciones[choferId]) {
+                    this.selecciones[choferId] = {};
+                }
+
+                this.selecciones[choferId][servicio] = seleccionado;
+                this.updateUI(choferId, servicio, seleccionado);
+
+                if (servicio === 'extras' && seleccionado) {
+                    this.editarExtras(choferId);
+                }
+
+                this.calcularTotal(choferId);
+            }
+
+            updateUI(choferId, servicio, seleccionado) {
+                // Encontrar los botones específicos de este chofer y servicio
+                const allButtons = document.querySelectorAll(`div[onclick*="${choferId}"][onclick*="'${servicio}'"]`);
+                
+                // Remover clases previas
+                allButtons.forEach(btn => btn.classList.remove('selected', 'rejected'));
+                
+                if (seleccionado !== null) {
+                    if (seleccionado) {
+                        // Botón de check (primer botón) se pone verde
+                        allButtons[0].classList.add('selected');
+                    } else {
+                        // Botón de X (segundo botón) se pone rojo
+                        allButtons[1].classList.add('rejected');
+                    }
+                }
+
+                // Mostrar/ocultar detalles de extras
+                if (servicio === 'extras') {
+                    const extrasDetail = document.getElementById(`extras-detail-${choferId}`);
+                    if (seleccionado) {
+                        extrasDetail.style.display = 'block';
+                        // Inicializar tarifa personalizada si no existe
+                        if (!this.tarifasExtrasPersonalizadas[choferId]) {
+                            const tarifaDefault = parseFloat(document.getElementById('tarifaExtras').value);
+                            document.getElementById(`tarifa-extra-${choferId}`).value = tarifaDefault;
+                            this.tarifasExtrasPersonalizadas[choferId] = tarifaDefault;
+                        }
+                    } else {
+                        extrasDetail.style.display = 'none';
+                    }
+                }
+            }
+
+            cambiarTarifaExtra(choferId) {
+                // Actualizar tarifa personalizada
+                const nuevaTarifa = parseFloat(document.getElementById(`tarifa-extra-${choferId}`).value) || 0;
+                this.tarifasExtrasPersonalizadas[choferId] = nuevaTarifa;
+                
+                // Recalcular total
+                this.calcularTotal(choferId);
+            }
+
+            editarExtras(choferId) {
+                document.getElementById('currentChoferId').value = choferId;
+                document.getElementById('extrasDetail').value = this.detallesExtras[choferId] || '';
+                const modal = new bootstrap.Modal(document.getElementById('extrasModal'));
+                modal.show();
+            }
+
+            guardarExtras() {
+                const choferId = document.getElementById('currentChoferId').value;
+                const detalle = document.getElementById('extrasDetail').value;
+                
+                this.detallesExtras[choferId] = detalle;
+                
+                const extrasText = document.querySelector(`#extras-detail-${choferId} .extras-text`);
+                extrasText.textContent = detalle || 'Sin especificar';
+                
+                bootstrap.Modal.getInstance(document.getElementById('extrasModal')).hide();
+            }
+
+            calcularTotal(choferId) {
+                let total = 0;
+                const seleccion = this.selecciones[choferId] || {};
+                
+                if (seleccion.distribucion) {
+                    total += parseFloat(document.getElementById('tarifaDistribucion').value);
+                }
+                if (seleccion.recoleccion) {
+                    total += parseFloat(document.getElementById('tarifaRecoleccion').value);
+                }
+                if (seleccion.extras) {
+                    // Usar tarifa personalizada si existe, sino usar la general
+                    const tarifaExtra = this.tarifasExtrasPersonalizadas[choferId] || parseFloat(document.getElementById('tarifaExtras').value);
+                    total += tarifaExtra;
+                }
+                
+                document.getElementById(`total-${choferId}`).textContent = total.toFixed(2);
+            }
+
+            toggleEditTarifas() {
+                this.editandoTarifas = !this.editandoTarifas;
+                const inputs = ['tarifaDistribucion', 'tarifaRecoleccion', 'tarifaExtras'];
+                const btn = document.getElementById('editTarifasBtn');
+                
+                inputs.forEach(id => {
+                    const input = document.getElementById(id);
+                    input.readOnly = !this.editandoTarifas;
+                    if (this.editandoTarifas) {
+                        input.classList.add('border-warning');
+                    } else {
+                        input.classList.remove('border-warning');
+                    }
+                });
+                
+                btn.innerHTML = this.editandoTarifas ? 
+                    '<i class="fas fa-save me-1"></i>Guardar' : 
+                    '<i class="fas fa-edit me-1"></i>Editar';
+                
+                btn.className = this.editandoTarifas ? 'btn btn-success btn-sm' : 'btn btn-outline-primary btn-sm';
+                
+                if (!this.editandoTarifas) {
+                    this.actualizarTarifasEnUI();
+                    this.recalcularTodos();
+                }
+            }
+
+            actualizarTarifasEnUI() {
+                const tarifas = {
+                    distribucion: document.getElementById('tarifaDistribucion').value,
+                    recoleccion: document.getElementById('tarifaRecoleccion').value,
+                    extras: document.getElementById('tarifaExtras').value
+                };
+                
+                document.querySelectorAll('.tarifa-distribucion').forEach(el => el.textContent = tarifas.distribucion);
+                document.querySelectorAll('.tarifa-recoleccion').forEach(el => el.textContent = tarifas.recoleccion);
+                document.querySelectorAll('.tarifa-extras').forEach(el => el.textContent = tarifas.extras);
+            }
+
+            recalcularTodos() {
+                this.choferes.forEach(chofer => {
+                    this.calcularTotal(chofer.id);
+                });
+            }
+
+            mostrarResumen() {
+                const choferesSeleccionados = this.obtenerChoferesSeleccionados();
+                const container = document.getElementById('resumenContent');
+                
+                if (choferesSeleccionados.length === 0) {
+                    container.innerHTML = '<div class="alert alert-warning">No hay choferes seleccionados</div>';
+                } else {
+                    container.innerHTML = this.generarHTMLResumen(choferesSeleccionados);
+                }
+                
+                const modal = new bootstrap.Modal(document.getElementById('resumenModal'));
+                modal.show();
+            }
+
+            generarHTMLResumen(choferesSeleccionados) {
+                let html = '<div class="table-responsive"><table class="table table-striped">';
+                html += '<thead class="table-primary"><tr><th>Chofer</th><th>Servicios</th><th>Detalles</th><th>Total</th></tr></thead><tbody>';
+                
+                let totalGeneral = 0;
+                
+                choferesSeleccionados.forEach(chofer => {
+                    const seleccion = this.selecciones[chofer.id];
+                    const servicios = [];
+                    let totalChofer = 0;
+                    
+                    if (seleccion.distribucion) {
+                        servicios.push('Distribución');
+                        totalChofer += parseFloat(document.getElementById('tarifaDistribucion').value);
+                    }
+                    if (seleccion.recoleccion) {
+                        servicios.push('Recolección');
+                        totalChofer += parseFloat(document.getElementById('tarifaRecoleccion').value);
+                    }
+                    if (seleccion.extras) {
+                        servicios.push('Extras');
+                        // Usar tarifa personalizada si existe
+                        const tarifaExtra = this.tarifasExtrasPersonalizadas[chofer.id] || parseFloat(document.getElementById('tarifaExtras').value);
+                        totalChofer += tarifaExtra;
+                    }
+                    
+                    const detalles = seleccion.extras && this.detallesExtras[chofer.id] ? 
+                        this.detallesExtras[chofer.id] : '-';
+                    
+                    // Mostrar tarifa personalizada en el resumen si es diferente
+                    let serviciosTexto = servicios.join(', ');
+                    if (seleccion.extras && this.tarifasExtrasPersonalizadas[chofer.id]) {
+                        const tarifaPersonalizada = this.tarifasExtrasPersonalizadas[chofer.id];
+                        serviciosTexto = serviciosTexto.replace('Extras', `Extras (${tarifaPersonalizada})`);
+                    }
+                    
+                    html += `<tr>
+                        <td><strong>${chofer.nombre}</strong></td>
+                        <td>${serviciosTexto}</td>
+                        <td class="small">${detalles}</td>
+                        <td><strong>${totalChofer.toFixed(2)}</strong></td>
+                    </tr>`;
+                    
+                    totalGeneral += totalChofer;
+                });
+                
+                html += `</tbody><tfoot class="table-success">
+                    <tr><th colspan="3">TOTAL GENERAL</th><th>$${totalGeneral.toFixed(2)}</th></tr>
+                </tfoot></table></div>`;
+                
+                return html;
+            }
+
+            obtenerChoferesSeleccionados() {
+                return this.choferes.filter(chofer => {
+                    const seleccion = this.selecciones[chofer.id];
+                    return seleccion && (seleccion.distribucion || seleccion.recoleccion || seleccion.extras);
+                });
+            }
+
+            descargarPDF() {
+                const choferesSeleccionados = this.obtenerChoferesSeleccionados();
+                
+                if (choferesSeleccionados.length === 0) {
+                    alert('No hay choferes seleccionados para descargar');
+                    return;
+                }
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Título
+                doc.setFontSize(18);
+                doc.setFont(undefined, 'bold');
+                doc.text('Reporte de Choferes Seleccionados', 20, 20);
+                
+                // Fecha
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'normal');
+                doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 20, 30);
+                
+                let y = 50;
+                let totalGeneral = 0;
+                
+                // Encabezados
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'bold');
+                doc.text('Chofer', 20, y);
+                doc.text('Servicios', 80, y);
+                doc.text('Total', 150, y);
+                
+                y += 5;
+                doc.line(20, y, 190, y); // Línea separadora
+                y += 10;
+                
+                doc.setFont(undefined, 'normal');
+                
+                choferesSeleccionados.forEach(chofer => {
+                    if (y > 270) { // Nueva página si es necesario
+                        doc.addPage();
+                        y = 20;
+                    }
+                    
+                    const seleccion = this.selecciones[chofer.id];
+                    const servicios = [];
+                    let totalChofer = 0;
+                    
+                    if (seleccion.distribucion) {
+                        servicios.push('Distribución');
+                        totalChofer += parseFloat(document.getElementById('tarifaDistribucion').value);
+                    }
+                    if (seleccion.recoleccion) {
+                        servicios.push('Recolección');
+                        totalChofer += parseFloat(document.getElementById('tarifaRecoleccion').value);
+                    }
+                    if (seleccion.extras) {
+                        servicios.push('Extras');
+                        const tarifaExtra = this.tarifasExtrasPersonalizadas[chofer.id] || parseFloat(document.getElementById('tarifaExtras').value);
+                        totalChofer += tarifaExtra;
+                    }
+                    
+                    doc.text(chofer.nombre, 20, y);
+                    
+                    // Mostrar servicios con tarifa personalizada si aplica
+                    let serviciosTexto = servicios.join(', ');
+                    if (seleccion.extras && this.tarifasExtrasPersonalizadas[chofer.id]) {
+                        const tarifaPersonalizada = this.tarifasExtrasPersonalizadas[chofer.id];
+                        serviciosTexto = serviciosTexto.replace('Extras', `Extras (${tarifaPersonalizada})`);
+                    }
+                    
+                    doc.text(serviciosTexto, 80, y);
+                    doc.text(`${totalChofer.toFixed(2)}`, 150, y);
+                    
+                    // Detalles de extras si los hay
+                    if (seleccion.extras && this.detallesExtras[chofer.id]) {
+                        y += 7;
+                        doc.setFontSize(8);
+                        doc.text(`Extras: ${this.detallesExtras[chofer.id]}`, 25, y);
+                        doc.setFontSize(10);
+                    }
+                    
+                    totalGeneral += totalChofer;
+                    y += 12;
+                });
+                
+                // Total general
+                y += 10;
+                doc.line(20, y, 190, y);
+                y += 10;
+                doc.setFont(undefined, 'bold');
+                doc.text('TOTAL GENERAL:', 20, y);
+                doc.text(`$${totalGeneral.toFixed(2)}`, 150, y);
+                
+                doc.save(`choferes_seleccionados_${new Date().toISOString().split('T')[0]}.pdf`);
+            }
+
+            limpiarSelecciones() {
+                if (confirm('¿Está seguro de que desea limpiar todas las selecciones?')) {
+                    this.selecciones = {};
+                    this.detallesExtras = {};
+                    this.tarifasExtrasPersonalizadas = {};
+                    this.renderChoferes();
+                    this.actualizarTarifasEnUI();
+                    this.recalcularTodos();
+                }
+            }
+        }
+
+        // Inicializar la aplicación
+        const choferManager = new ChoferManager();
+        choferManager.actualizarTarifasEnUI();
+    </script>
 </body>
 </html>
